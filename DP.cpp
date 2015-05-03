@@ -10,6 +10,8 @@ using namespace std;
 namespace DP {
   template<typename> unsigned lis(vector<int>);
   template<typename> unsigned lis_nlogn(vector<int>);
+  int mx_sub_sum(vector<int>);
+  pair<int, int> mx_sub_sum_range(vector<int>);
 };
 
 template<typename Data> unsigned DP::lis(vector<Data> arr) {
@@ -55,4 +57,37 @@ template<typename Data> unsigned DP::lis_nlogn(vector<Data> arr) {
   }
   return dp.size();
 }
+int DP::mx_sub_sum(vector<int> arr) {
+  int mx = 0, sum = 0;
+  for(int i = 0;i < arr.size();i++) {
+    sum += arr[i];
+    if(i == 0 || sum > mx) {
+      mx = sum;
+    }
+    if(sum < 0) {
+      sum = 0;
+    }
+  }
+  return mx;
+}
+pair<int, int> DP::mx_sub_sum_range(vector<int> arr) {
+  int mx = 0, sum = 0, idx;
+  for(int i = 0;i < arr.size();i++) {
+    sum += arr[i];
+    if(i == 0 || sum > mx) {
+      mx = sum;
+      idx = i;
+    }
+    if(sum < 0) {
+      sum = 0;
+    }
+  }
+  int lf = idx;
+  sum = arr[idx];
+  while(sum != mx) {
+    sum += arr[--lf];
+  }
+  return {lf, idx};
+}
+
 #endif
