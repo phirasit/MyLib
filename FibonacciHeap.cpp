@@ -183,6 +183,17 @@ template<class Data> class FIBOheap {
 			}
 		}
 
+		void meld(FIBOheap<Data> H2) {
+			if(empty()) return H2;
+			if(H2.empty()) return *this;
+			iterator *u1 = root, *u2 = root->right;
+			iterator *v1 = H2.root, v2 = H2.root->left;
+			u1->right = v1;
+			v1->left = u1;
+			u2->left = v2;
+			v2->right = u2;
+		}
+		
 		FIBOheap(void) : min_node(NULL), root(NULL), total_size(0) {}
 		~FIBOheap(void) {}
 };
