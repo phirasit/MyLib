@@ -7,7 +7,7 @@
 
 using namespace std;
 
-template<class Data> class FibonnaciHeap {
+template<class Data> class FibonacciHeap {
 	
 	public :
 		
@@ -55,6 +55,7 @@ template<class Data> class FibonnaciHeap {
 		iterator* push(Data new_data) {
 			iterator *new_node = new iterator(new_data);
 			insert_root(new_node);
+			total_size++;
 			return new_node;
 		}
 
@@ -180,7 +181,7 @@ template<class Data> class FibonnaciHeap {
 			}
 		}
 
-		void meld(FibonnaciHeap<Data> H2) {
+		void meld(FibonacciHeap<Data> H2) {
 			if(empty()) return H2;
 			if(H2.empty()) return *this;
 			iterator *u1 = root, *u2 = root->right;
@@ -191,8 +192,8 @@ template<class Data> class FibonnaciHeap {
 			v2->right = u2;
 		}
 
-		FibonnaciHeap(void) : min_node(NULL), root(NULL), total_size(0) {}
-		~FibonnaciHeap(void) {}
+		FibonacciHeap(void) : min_node(NULL), root(NULL), total_size(0) {}
+		~FibonacciHeap(void) {}
 };
 
 #endif
