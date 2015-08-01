@@ -4,12 +4,10 @@
 #define __FIBONACCI_HEAP__
 
 #include <vector>
-#include <stdio.h>
-#include <assert.h>
 
 using namespace std;
 
-template<class Data> class FIBOheap {
+template<class Data> class FibonnaciHeap {
 	
 	public :
 		
@@ -95,6 +93,7 @@ template<class Data> class FIBOheap {
 
 		void Consolidate(void) {
 
+			if(empty()) return;
 
 			vector<iterator*> new_root;
 			
@@ -103,8 +102,6 @@ template<class Data> class FIBOheap {
 			for(iterator *u = root; u != root or first;) {
 
 				iterator *nxt = u->right;
-
-				assert(u != NULL);
 
 				first = false;
 
@@ -183,7 +180,7 @@ template<class Data> class FIBOheap {
 			}
 		}
 
-		void meld(FIBOheap<Data> H2) {
+		void meld(FibonnaciHeap<Data> H2) {
 			if(empty()) return H2;
 			if(H2.empty()) return *this;
 			iterator *u1 = root, *u2 = root->right;
@@ -193,9 +190,9 @@ template<class Data> class FIBOheap {
 			u2->left = v2;
 			v2->right = u2;
 		}
-		
-		FIBOheap(void) : min_node(NULL), root(NULL), total_size(0) {}
-		~FIBOheap(void) {}
+
+		FibonnaciHeap(void) : min_node(NULL), root(NULL), total_size(0) {}
+		~FibonnaciHeap(void) {}
 };
 
 #endif
