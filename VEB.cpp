@@ -52,6 +52,7 @@ class VEB {
         int find_max(void);
 
         VEB_NODE(int);
+        ~VEB_NODE(void);
         bool find(int);
         int successor(int);
         int predecessor(int);
@@ -90,6 +91,12 @@ VEB::VEB_NODE::VEB_NODE(int _len) {
     cluster.resize(1 << (len - half_len), NULL);
   }
   min = max = none;
+}
+VEB::VEB_NODE::~VEB_NODE(void) {
+  delete aux;
+  for(int i = 0;i < (1 << len - half_len);i++) {
+    delete cluster[i];
+  }
 }
 
 // these are accessory functions
