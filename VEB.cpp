@@ -7,10 +7,10 @@ with running time of O(log log U) instead of
 O(log N). This result leads to a new approach
 of dealing with dictionary.
 
-VEB consists of exploiting bitwise number and resursive tree.
+VEB exploits bitwise number and resursive tree.
 This tree requires O(N log log U) memory.
 
-This code is written in C++11. 
+This code is written in C++. 
 Everyone is free to use this code.
 The author personally believe that the code is bug-free.
 */
