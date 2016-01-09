@@ -21,13 +21,13 @@ The author personally believe that the code is bug-free.
 
 #include <algorithm>
 #include <vector>
+#include <memory>
 
 using namespace std;
 
 class VEB {
 
-  // protected :
-  public :
+  private:
 
     static const int error_code = -1;
 
@@ -35,7 +35,7 @@ class VEB {
 
       private :
 
-        VEB_NODE *aux;
+        VEB_NODE* aux;
         vector<VEB_NODE*> cluster;
         int len, half_len;
         int min, max;
@@ -94,7 +94,7 @@ VEB::VEB_NODE::VEB_NODE(int _len) {
 }
 VEB::VEB_NODE::~VEB_NODE(void) {
   delete aux;
-  for(int i = 0;i < (1 << len - half_len);i++) {
+  for(int i = 0;i < cluster.size();i++) {
     delete cluster[i];
   }
 }
