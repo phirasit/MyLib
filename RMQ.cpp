@@ -24,7 +24,6 @@ This code is for C++11 or newer version
 #define __RMQ_TYPE_N__ 1
 #define __RMQ_TYPE_NLOGN__ 2
 #define __RMQ_TYPE_SLOW__ 3
-#define __RMQ_TYPE_SMALL__ 4
 #define __RMQ_DEFAULT_ALGO__ __RMQ_TYPE_NLOGN__
 
 using namespace std;
@@ -36,6 +35,8 @@ template<class Data> class RMQ {
 		int type;
 		mutable function<bool (Data, Data)> cmp;
 		vector<Data> data; 
+
+	public: 
 
 		RMQ(vector<Data>, int, function<bool (Data, Data)>);
 		RMQ(vector<Data>, function<bool (Data, Data)>);
@@ -50,18 +51,16 @@ template<class Data> class RMQ {
 		void initFast1(void);
 		void initFast2(void);
 		void initSlow(void);
-		void initSmall(void);
 
 		int QueryFast1(int, int);
 		int QueryFast2(int, int);
 		int QuerySlow(int, int);
-		int QuerySmall(int, int);
 
 		// for O(N) algorithm
 		int group(int);
 
 		int K;
-		RMQ< pair<Data, int> > summary;
+		RMQ< pair<Data, int> >* summary;
 		class Cluster {
 
 			public:
@@ -70,15 +69,17 @@ template<class Data> class RMQ {
 				int ComputeHash(void);
 				void ComputeRMQ(void);
 
+				mutable function<bool (Data, Data)> cmp;
+				vector<Data> data;
 				vector< vector<int> > rmq;
-				vector<Data> list;
+				vector<int> list;
 
 				// Euler tour tree
-				vector<Data> EulerTour;
-				vector<int> Height, FirstPosition;
+				vector<int> EulerTour, Height, FirstPosition;
 				
 				int hash;
 
+				Cluster(vector<Data> _data, function<bool (Data, Data)> _cmp) : data(_data), cmp(_cmp) {}
 		};
 
 		vector<Cluster> cluster;
@@ -105,9 +106,6 @@ template <class Data> RMQ<Data>::RMQ(vector<Data> _data, int algorithm = __RMQ_D
 			break;
 		case __RMQ_TYPE_SLOW__:
 			initSlow();
-			break;
-		case __RMQ_TYPE_SMALL__:
-			initSmall();
 			break;
 		default:
 			// error
@@ -141,8 +139,7 @@ template <class Data> void RMQ<Data>::Cluster::BuiltCartesianTree(void) {
 	vector<int> Parent(list.size());
 	vector< vector<int> > child(list.size(), vector<int>());
 	for(int i = 0;i < list.size();i++) {
-
-		while(!stk.empty() and cmp(data[list[i]], data[list[stk.top()]])) {
+		while(!stk.empty() and cmp(data[list[i]], data[list[stk.top()]]) ) {
 			Parent[stk.top()] = i;
 			stk.pop();
 			Parent[i] = (stk.empty() ? -1 : stk.top());
@@ -184,10 +181,10 @@ template <class Data> void RMQ<Data>::Cluster::BuiltCartesianTree(void) {
 	cout << endl;
 }
 template <class Data> int RMQ<Data>::Cluster::ComputeHash(void) {
-	return 0;	
+	return hash = 0;	
 }
 template <class Data> void RMQ<Data>::Cluster::ComputeRMQ(void) {
-	
+	return;
 }
 
 template <class Data> void RMQ<Data>::initFast1(void) {	
@@ -195,29 +192,31 @@ template <class Data> void RMQ<Data>::initFast1(void) {
 	if(data.empty()) return;
 
 	// set parameter
-	K = MyMath::log2(data.size()) >> 2;
+	K = MyMath::log2( (int) data.size()) >> 2;
 
 	if(K == 0) {
-		RMQ(data, cmp, __RMQ_TYPE_NLOGN__);
+		type = __RMQ_TYPE_NLOGN__;
+		initFast2();
 		return;
 	}
 
 	// summary 
-	vector< pair<Data, int> > candidate(group(data.size()-1) + 1);
+	vector< pair<Data, int> > candidate;
 	for(int i = 0;i < data.size();i++) {
 		int g = group(i);
-		if(i % K == 0 or cmp(data[i], candidate[g].first)) {
+		if(i % K == 0) candidate.push_back({data[i], i});
+		else if(cmp(data[i], candidate[g].first)) {
 			candidate[g] = {data[i], i};
 		}
 	}
-	summary = RMQ< pair<Data, int> >(candidate, __RMQ_TYPE_NLOGN__, 
-		[=](pair<Data, int> p1, pair<Data, int> p2) {
-			if(cmp(p1.first, p2.first) or cmp(p2.first, p1.first)) return cmp(p1.first, p2.first);
-			return p1.second < p2.second;
-		});
+	// summary = new RMQ< pair<Data, int> >(candidate, __RMQ_TYPE_NLOGN__, 
+	// 	[=](pair<Data, int> p1, pair<Data, int> p2) {
+	// 		if(cmp(p1.first, p2.first) or cmp(p2.first, p1.first)) return cmp(p1.first, p2.first);
+	// 		return p1.second < p2.second;
+	// 	});
 
 	// cluster
-	cluster.resize(group(data.size()-1));
+	cluster.resize(group(data.size()-1), Cluster(data, cmp));
 	memmory.resize(1 << (K << 1), vector< vector<int> > (K, vector<int>(K)));
 	check.resize(memmory.size(), 0);
 	for(auto& val : check) val = 0;
@@ -229,9 +228,9 @@ template <class Data> void RMQ<Data>::initFast1(void) {
 		int g = group(i);
 		cluster[g].list = V;
 		cluster[g].BuiltCartesianTree();
-		if(cluster[g].size() == K and check[cluster[g].ComputeHash()] == 0) {
+		if(cluster[g].list.size() == K and check[cluster[g].ComputeHash()] == 0) {
 			check[cluster[g].hash] = 1;
-			cluster.rmq = memmory[cluster[g].hash];
+			cluster[g].rmq = memmory[cluster[g].hash];
 		}else {
 			cluster[g].ComputeRMQ();
 			memmory[cluster[g].hash] = cluster[g].rmq;
@@ -263,12 +262,12 @@ template<class Data> int RMQ<Data>::QueryFast1(int idx1, int idx2) {
 	int g1 = group(idx1), g2 = group(idx2);
 	if(g1+1 <= g2-1) {
 		int ans = idx1;
-		pair<Data, int> C1 = summary.query(g1+1, g2-1);
+		// int id1 = summary->[summary->query(g1+1, g2-1)].second;
 		int id2 = cluster[g1].rmq[idx1 % K][K-1];
 		int id3 = cluster[g2].rmq[0][idx2 % K];
-		if(cmp(C1.first, data[ans])) {
-			ans = C1.second;
-		}
+		// if(cmp(data[id1], data[ans])) {
+		// 	ans = id1;
+		// }
 		if(cmp(data[id2], data[ans])) {
 			ans = id2;
 		}
@@ -310,20 +309,16 @@ template<class Data> int RMQ<Data>::QuerySlow(int idx1, int idx2) {
 
 template<class Data> int RMQ<Data>::query(int idx1, int idx2) {
 	if(idx1 > idx2) swap(idx1, idx2);
-	if(idx1 < 0 or idx2 >= data.size()) return error();
+	if(idx1 < 0) idx1 = 0;
+	if(idx2 >= data.size()) idx2 = (int) data.size() - 1;
 	switch(type) {
 		case __RMQ_TYPE_N__ :
-			return QueryFast1();
+			return QueryFast1(idx1, idx2);
 		case __RMQ_TYPE_NLOGN__:
 			return QueryFast2(idx1, idx2);
 		case __RMQ_TYPE_SLOW__ :
 			return QuerySlow(idx1, idx2);
-		case __RMQ_TYPE_SMALL__:
-			return QuerySmall(idx1, idx2);
-		default :
-			return error();
 	}
-	return error();
 }
 
 template<class Data> Data RMQ<Data>::operator[](int idx) {
