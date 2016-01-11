@@ -60,7 +60,10 @@ template<class Data> class RMQ {
 		int group(int);
 
 		int K;
-		RMQ< pair<Data, int> >* summary;
+		vector<int> candidate;
+		vector<int> candidate_value;
+		RMQ<Data>* summary;
+
 		class Cluster {
 
 			public:
@@ -68,6 +71,7 @@ template<class Data> class RMQ {
 				void BuiltCartesianTree(void);
 				int ComputeHash(void);
 				void ComputeRMQ(void);
+				int query(int, int);
 
 				mutable function<bool (Data, Data)> cmp;
 				vector<Data> data;
@@ -133,12 +137,18 @@ template <class Data> int RMQ<Data>::group(int idx) {
 	return idx / K;
 }
 
-#include <iostream>
 template <class Data> void RMQ<Data>::Cluster::BuiltCartesianTree(void) {
 	stack<int> stk, dfs;
-	vector<int> Parent(list.size());
+	vector<int> Parent(list.size(), -1);
 	vector< vector<int> > child(list.size(), vector<int>());
+
+	EulerTour.clear();
+	Height.clear();
+	FirstPosition.clear();
+	FirstPosition.resize(list.size(), -1);
+
 	for(int i = 0;i < list.size();i++) {
+		Parent[i] = (stk.empty() ? -1 : stk.top());
 		while(!stk.empty() and cmp(data[list[i]], data[list[stk.top()]]) ) {
 			Parent[stk.top()] = i;
 			stk.pop();
@@ -146,18 +156,26 @@ template <class Data> void RMQ<Data>::Cluster::BuiltCartesianTree(void) {
 		}
 		stk.push(i);
 	}
-	for(int i = 0;i < list.size();i++) {
-		child[Parent[i]].push_back(i);
-		FirstPosition[i] = -1;
+	int root = 0;
+	for(int i = list.size()-1;i >= 0;i--) {
+		if(Parent[i] != -1) {
+			child[Parent[i]].push_back(i);
+		}else {
+			root = i;
+		}
 	}
 
-	dfs.push(0);
+	dfs.push(root);
 	while(!dfs.empty()) {
 		int u = dfs.top();
 		EulerTour.push_back(u);
 		Height.push_back(dfs.size());
 		if(FirstPosition[u] == -1) {
 			FirstPosition[u] = (int) EulerTour.size() - 1;
+		}
+		if(child[u].size() == 1 and child[u][0] > u) {
+			EulerTour.push_back(-1);
+			Height.push_back(list.size() + 1);
 		}
 		if(child[u].size() == 0) {
 			dfs.pop();
@@ -166,60 +184,62 @@ template <class Data> void RMQ<Data>::Cluster::BuiltCartesianTree(void) {
 			child[u].pop_back();
 		}
 	}
-
-	for(int val : list) {
-		cout << val << " ";
-	}
-	cout << endl;
-	for(int e : EulerTour) {
-		cout << e << " ";
-	}
-	cout << endl;
-	for(int h : Height) {
-		cout << h << " ";
-	}
-	cout << endl;
 }
 template <class Data> int RMQ<Data>::Cluster::ComputeHash(void) {
-	return hash = 0;	
+	hash = 1 << Height.size();
+	for(int i = 0;i+1 < Height.size();i++) {
+		hash ^= (Height[i] < Height[i+1]) << i;
+	}
+	return hash;
 }
 template <class Data> void RMQ<Data>::Cluster::ComputeRMQ(void) {
-	return;
+	rmq.clear();
+	rmq.resize(EulerTour.size(), vector<int>(EulerTour.size()));
+	for(int i = 0;i < rmq.size();i++) {
+		for(int j = i;j < rmq[i].size();j++) {
+			if(EulerTour[j] == -1) {
+				rmq[i][j] = (i == j ? -1 : rmq[i][j-1]);
+			}else if(rmq[i][j-1] == -1) {
+				rmq[i][j] = EulerTour[j];
+			}else {
+				rmq[i][j] = (cmp(data[list[EulerTour[j]]], data[list[rmq[i][j-1]]]) ? EulerTour[j] : rmq[i][j-1]);
+			}
+		}
+	}
 }
-
+template <class Data> int RMQ<Data>::Cluster::query(int idx1, int idx2) {
+	if(FirstPosition[idx1] > FirstPosition[idx2]) swap(idx1, idx2);
+	return list[rmq[FirstPosition[idx1]][FirstPosition[idx2]]];
+}
 template <class Data> void RMQ<Data>::initFast1(void) {	
 
 	if(data.empty()) return;
 
 	// set parameter
-	K = MyMath::log2( (int) data.size()) >> 2;
+	K = MyMath::log2( (int) data.size()) >> 3;
 
 	if(K == 0) {
-		type = __RMQ_TYPE_NLOGN__;
-		initFast2();
-		return;
+		K = 1;
 	}
 
 	// summary 
-	vector< pair<Data, int> > candidate;
 	for(int i = 0;i < data.size();i++) {
 		int g = group(i);
-		if(i % K == 0) candidate.push_back({data[i], i});
-		else if(cmp(data[i], candidate[g].first)) {
-			candidate[g] = {data[i], i};
+		if(i % K == 0) candidate.push_back(i);
+		else if(cmp(data[i], data[candidate[g]])) {
+			candidate[g] = i;
 		}
 	}
-	// summary = new RMQ< pair<Data, int> >(candidate, __RMQ_TYPE_NLOGN__, 
-	// 	[=](pair<Data, int> p1, pair<Data, int> p2) {
-	// 		if(cmp(p1.first, p2.first) or cmp(p2.first, p1.first)) return cmp(p1.first, p2.first);
-	// 		return p1.second < p2.second;
-	// 	});
+	for(int id : candidate) candidate_value.push_back(data[id]);
+	summary = new RMQ<Data>(candidate_value, __RMQ_TYPE_NLOGN__, cmp);
 
 	// cluster
-	cluster.resize(group(data.size()-1), Cluster(data, cmp));
-	memmory.resize(1 << (K << 1), vector< vector<int> > (K, vector<int>(K)));
+	cluster.clear();
+	cluster.resize(group(data.size()-1) + 1, Cluster(data, cmp));
+	memmory.clear();
+	memmory.resize(1 << (K << 2));
+	check.clear();
 	check.resize(memmory.size(), 0);
-	for(auto& val : check) val = 0;
 	for(int i = 0;i < data.size();i += K) {
 		vector<int> V;
 		for(int j = 0;i+j < data.size() and j < K;j++) {
@@ -228,7 +248,7 @@ template <class Data> void RMQ<Data>::initFast1(void) {
 		int g = group(i);
 		cluster[g].list = V;
 		cluster[g].BuiltCartesianTree();
-		if(cluster[g].list.size() == K and check[cluster[g].ComputeHash()] == 0) {
+		if(cluster[g].list.size() == K and check[cluster[g].ComputeHash()]) {
 			check[cluster[g].hash] = 1;
 			cluster[g].rmq = memmory[cluster[g].hash];
 		}else {
@@ -260,25 +280,16 @@ template<class Data> void RMQ<Data>::initSlow(void) {
 
 template<class Data> int RMQ<Data>::QueryFast1(int idx1, int idx2) {
 	int g1 = group(idx1), g2 = group(idx2);
-	if(g1+1 <= g2-1) {
+	if(g1 < g2) {
 		int ans = idx1;
-		// int id1 = summary->[summary->query(g1+1, g2-1)].second;
-		int id2 = cluster[g1].rmq[idx1 % K][K-1];
-		int id3 = cluster[g2].rmq[0][idx2 % K];
-		// if(cmp(data[id1], data[ans])) {
-		// 	ans = id1;
-		// }
-		if(cmp(data[id2], data[ans])) {
-			ans = id2;
+		if(g1 + 1 <= g2 - 1) {
+			int id1 = candidate[summary->query(g1+1, g2-1)];
+			if(cmp(data[id1], data[ans])) {
+				ans = id1;
+			}
 		}
-		if(cmp(data[id3], data[ans])) {
-			ans = id3;
-		}
-		return ans;
-	}else if(g1 < g2) {
-		int ans = idx1;
-		int id2 = cluster[g1].rmq[idx1 % K][K-1];
-		int id3 = cluster[g2].rmq[0][idx2 % K];
+		int id2 = cluster[g1].query(idx1 % K, K-1);
+		int id3 = cluster[g2].query(0, idx2 % K);
 		if(cmp(data[id2], data[ans])) {
 			ans = id2;
 		}
@@ -287,7 +298,7 @@ template<class Data> int RMQ<Data>::QueryFast1(int idx1, int idx2) {
 		}
 		return ans;
 	}else {
-		return cluster[g1].rmq[idx1 % K][idx2 % K];
+		return cluster[g1].query(idx1 % K, idx2 % K);
 	}
 }
 
@@ -326,16 +337,3 @@ template<class Data> Data RMQ<Data>::operator[](int idx) {
 }
 
 #endif
-
-#include <iostream>
-
-int main(int argc, char const *argv[])
-{
-	RMQ<int> R({4, 5, 2, 4, 3}, __RMQ_TYPE_NLOGN__);
-	for(int i = 0;i < R.data.size();i++) {
-		for(int j = i;j < R.data.size();j++) {
-			cout << i << " " << j << " " << " : " << R[R.query(i, j)] << endl;
-		}
-	}
-	return 0;
-}
