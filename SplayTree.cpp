@@ -51,12 +51,13 @@ template < class DataType > class SplayTree {
 				// size of subtree
 				size_t size;
 
-				// constructor
-					// without key
-					node ( void );
+				// constructors
 
 					// with key 
 					node ( DataType );
+
+					// without key
+					node ( void );
 		};
 
 	public:
@@ -118,11 +119,11 @@ template < class DataType > class SplayTree {
 		// get the size of subtree
 		size_t get_size ( std :: shared_ptr < node > );
 
-		// fix function (use with lazy propagation)
-		void fix ( iterator );
+		// fix function 
+		void fix ( std :: shared_ptr < node > );
 
 		// rotate function (use with splay) 
-		void rotate ( iterator );
+		void rotate ( std :: shared_ptr < node > );
 
 	public:
 
@@ -185,19 +186,25 @@ template < class DataType > class SplayTree {
 			iterator insert ( size_t , DataType );
 
 			// insert a tree at its end
-			iterator insert ( SplayTree );
+			void insert ( SplayTree < DataType > );
 
-			// insert a tree with given position
-			iterator insert ( iterator , SplayTree );
+			// insert a tree before the given iterator
+			void insert ( iterator , SplayTree < DataType > );
+
+			// insert a tree at the given position
+			void insert ( size_t , SplayTree < DataType > );
 
 		// remove a key
 
 			// remove the matched key
 			// perform like multi-set
-			void remove ( DataType );
+			size_t erase ( DataType );
+
+			// remove at the position
+			void erase ( size_t );
 
 			// with a given iterator
-			void remove ( iterator );
+			void erase ( iterator );
 
 		// search for a key
 
@@ -218,6 +225,10 @@ template < class DataType > class SplayTree {
 
 		// get end() iterator
 		iterator end ( void );
+
+		// shift functions
+		iterator operator + ( iterator , int );
+		iterator operator - ( iterator , int );
 
 };
 
@@ -243,21 +254,21 @@ DataType& SplayTree < DataType > :: iterator :: operator * ( void ) { return ptr
 
 // compare iterator
 template < class DataType >
-bool SplayTree < DataType > :: iterator :: operator == ( iterator iter ) { return ptr == iter->ptr; }
+bool SplayTree < DataType > :: iterator :: operator == ( iterator iter ) { return ptr == iter.ptr; }
 template < class DataType >
-bool SplayTree < DataType > :: iterator :: operator != ( iterator iter ) { return ptr != iter->ptr; }
+bool SplayTree < DataType > :: iterator :: operator != ( iterator iter ) { return ptr != iter.ptr; }
 
 // increment function
 template < class DataType >
 void SplayTree < DataType > :: iterator :: operator ++ ( void ) {
-	assert ( ( ptr != end() , " cannot increase " ) );
+	assert ( ( ptr != end().ptr , " cannot increase " ) );
 	ptr = ptr->succ;
 }
 
 // decrement function
 template < class DataType >
 void SplayTree < DataType > :: iterator :: operator -- ( void ) {
-	assert ( ( ptr != begin() , " cannot decrease " ) );
+	assert ( ( ptr != begin().ptr , " cannot decrease " ) );
 	ptr = ptr->pred;
 }
 
@@ -291,52 +302,57 @@ SplayTree < DataType > :: SplayTree ( std::function < bool ( DataType& , DataTyp
 
 // fix operation ( use only with lazy propagation tag )
 template < class DataType > 
-void SplayTree < DataType > :: fix ( iterator it ) {
+void SplayTree < DataType > :: fix ( std :: shared_ptr < node > ptr ) {
+
+	// fix subtree's size
+	ptr->size = get_size ( ptr->left ) + get_size ( ptr->right ) + 1u;
 
 }
 
 // rotate operation ( helper function of splay )
 template < class DataType > 
-void SplayTree < DataType > :: rotate ( iterator it ) {
+void SplayTree < DataType > :: rotate ( std :: shared_ptr < node > ptr ) {
 
-	assert ( ( it.ptr->parent , " error rotate root " ) );
+	assert ( ( ptr->parent , " error rotate root " ) );
 
-	std :: shared_ptr < node > par ( it.ptr->parent );
+	std :: shared_ptr < node > par ( ptr->parent );
 
-	it.ptr->parent = par->parent;
+	ptr->parent = par->parent;
 
-	if( par->parent ) {
-		( par->parent->left == par ? par->parent->left : par->parent->right ) = it.ptr;
+	if( par->parent != nullptr ) {
+		if ( par->parent->left == par ) {
+			par->parent->left = ptr;
+		} else {
+			par->parent->right = ptr;
+		}
 	}
 
-	if( par->left == it.ptr ) {
+	if( par->left == ptr ) {
 
-		par->left = it.ptr->right;
+		par->left = ptr->right;
 
-		if( par->left ) {
+		if( par->left != nullptr ) {
 			par->left->parent = par;
 		}
 
-		it.ptr->right = par;
-		it.ptr->right->parent = it.ptr;
+		ptr->right = par;
+		ptr->right->parent = ptr;
 
 	} else {
 
-		par->right = it.ptr->left;
+		par->right = ptr->left;
 
-		if( par->right ) {
+		if( par->right != nullptr ) {
 			par->right->parent = par;
 		}
 
-		it.ptr->left = par;
-		it.ptr->left->parent = it.ptr;
+		ptr->left = par;
+		ptr->left->parent = ptr;
 
 	}
 
-	if ( _type == __SPLAY_TREE_LAZY_PROPAGATION__ or _type == __SPLAY_TREE_BST_LAZY_PROPAGATION__ ) {
-		fix ( iterator ( par ) );
-		fix ( it.ptr );
-	}
+	fix ( par );
+	fix ( ptr );
 
 }
 
@@ -344,27 +360,29 @@ void SplayTree < DataType > :: rotate ( iterator it ) {
 template < class DataType > 
 void SplayTree < DataType > :: splay ( iterator it ) {
 	
-	while ( it.ptr->parent ) { // not root
+	while ( it.ptr->parent != nullptr ) { // not root
 
 		std :: shared_ptr < node > par = it.ptr->parent;
 
 		if( par->parent == nullptr ) {
 
-			rotate ( it );
+			rotate ( it.ptr );
 
 		} else if( ( par->parent->left == par and par->right == it.ptr ) or ( par->parent->right == par and par->left == it.ptr ) ) {
 			
-			rotate ( it );
-			rotate ( it );
+			rotate ( it.ptr );
+			rotate ( it.ptr );
 		
 		} else {
 			
-			rotate ( iterator ( par ) );
-			rotate ( it );
+			rotate ( par );
+			rotate ( it.ptr );
 		
 		}
 
 	}
+
+	fix ( it.ptr );
 
 	_head = it.ptr;
 
@@ -380,13 +398,13 @@ size_t SplayTree < DataType > :: get_size ( std :: shared_ptr < node > ptr ) {
 template < class DataType >
 typename SplayTree < DataType > :: iterator SplayTree < DataType > :: nth ( size_t index ) {
 
-	assert ( ( 0 <= index and index <= size() , " index out of bound " ) );
+	assert ( ( 0u <= index and index <= size() , " index out of bound " ) );
 
 	iterator it = _head;
 
-	while ( index != get_size ( it.ptr->left ) + 1u ) {
+	while ( index != get_size ( it.ptr->left ) ) {
 
-		if ( get_size ( it.ptr->left ) + 1u < index ) {
+		if ( index < get_size ( it.ptr->left ) ) {
 			it.ptr = it.ptr->left;
 		} else {
 			index = index - ( get_size ( it.ptr->left ) + 1u );
@@ -416,28 +434,29 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: find ( Dat
 
 		while ( true ) {
 
-			bool isLess = comparator ( it.ptr->key , key );
-
-			if ( isLess ) {
+			if ( comparator ( *it , key ) ) {
 
 				if ( it.ptr->left == nullptr ) {
 					splay ( it );
 					return end();
 				}
 				it = it.ptr->left;
+
 			} else {
-	
-				bool isMore = comparator ( key , it.ptr->key );
 				
-				if ( isMore ) {
+				if ( comparator ( key , *it ) ) {
+					
 					if ( it.ptr->right == nullptr ) {
 						splay ( it );
 						return end();
 					}
 					it = it.ptr->right;
+
 				} else {
+
 					splay ( it );
 					return it;
+
 				}
 			}
 		}
@@ -445,7 +464,7 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: find ( Dat
 	} else {
 
 		for ( auto it = begin() ; it != end() ; it++ ) {
-			if ( (not comparator ( it.ptr->key , key ) ) and (not comparator ( key , it.ptr->key ) ) ) {
+			if ( (not comparator ( *it , key ) ) and (not comparator ( key , *it ) ) ) {
 				splay ( it );
 				return it;
 			}
@@ -458,20 +477,20 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: find ( Dat
 template < class DataType > 
 size_t SplayTree < DataType > :: position ( iterator it ) {
 	splay ( it );
-	return get_size ( it->left ) + 1u; 
+	return get_size ( it.ptr->left ); 
 }
 
 // lower bound function
 template < class DataType >
 typename SplayTree < DataType > :: iterator SplayTree < DataType > :: lower_bound ( DataType key ) {
 
-	assert ( ( _type == __SPLAY_TREE_BST__ or _type == __SPLAY_TREE_BST_LAZY_PROPAGATION__ , " SplayTree is not a BST ") );
+	assert ( ( _type == __SPLAY_TREE_BST__ or _type == __SPLAY_TREE_BST_LAZY_PROPAGATION__ , " This tree is not a BST ") );
 
 	std :: shared_ptr < node > ptr ( _head );
 
 	while ( true ) {
 
-		if ( ptr != end() and comparator ( ptr->key , key ) ) {
+		if ( ptr != end().ptr and comparator ( ptr->key , key ) ) {
 
 			if ( ptr->right == nullptr ) {
 				splay ( ptr );
@@ -484,7 +503,7 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: lower_boun
 
 			if ( ptr->lett == nullptr ) {
 				splay ( ptr );
-				if ( ptr != begin() and comparator ( key , ptr->pred->key )) {
+				if ( ptr != begin().ptr and comparator ( key , ptr->pred->key )) {
 					return iterator ( ptr->pred );
 				} else {
 					return iterator ( ptr );
@@ -526,6 +545,7 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: upper_boun
 		}
 	}
 }
+
 // -- begin insert function
 
 // insert at a given iterator
@@ -540,7 +560,8 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: insert ( i
 		
 		// assign new node to the left
 		it.ptr->left = ptr;
-		
+		ptr->parent = it.ptr;
+
 		// set new begin 
 		_begin = ptr;
 
@@ -549,12 +570,14 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: insert ( i
 		it.ptr->pred = ptr;
 
 	} else { 
+
 		it.ptr = it.ptr->left;
-		while ( it.ptr->right ) {
+		while ( it.ptr->right != nullptr ) {
 			it.ptr = it.ptr->right;
 		}
 
 		it.ptr->right = ptr;
+		ptr->parent = it.ptr;
 
 		// fix pred / succ
 		it.ptr->succ->pred = ptr;
@@ -581,13 +604,136 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: insert ( D
 
 }
 
+
 // insert at a given position
 template < class DataType > 
 typename SplayTree < DataType > :: iterator SplayTree < DataType > :: insert ( size_t index , DataType key ) {
 	return insert ( nth ( index ) , key );
 }
 
+// insert a tree before the given iterator
+template < class DataType >
+void SplayTree < DataType > :: insert ( iterator it , SplayTree < DataType > tree ) {
+
+	if ( tree.size() == 0u ) {
+		return;
+	}
+
+	if ( size() == 0u ) {
+		_head = tree.begin();
+		splay ( _head );
+		return; 
+	}
+
+	if ( it == end() ) {
+
+		auto it = nth ( size() - 1u );
+
+		erase ( it->right );
+
+		tree.splay ( tree.begin() );
+
+		it->right = tree.begin();
+
+		splay ( it );
+	}
+}
+
+// insert at th given position
+template < class DataType > 
+void SplayTree < DataType > :: insert ( size_t pos , SplayTree < DataType > tree ) {
+	insert ( nth ( pos ) , tree );
+}
+
+// insert before the end() iterator
+template < class DataType > 
+void SplayTree < DataType > :: insert ( SplayTree < DataType > tree ) {
+	insert ( size() , tree );
+}
+
+
 // -- end insert function
+
+// -- begin erase function
+
+// erase iterator 
+template < class DataType > 
+void SplayTree < DataType > :: erase ( iterator it ) {
+	
+	assert ( ( it != end() , " try to erase end() " ) );
+
+	splay ( it );
+
+	if ( it == begin() ) { 
+		
+		_begin = it.ptr->succ; 
+
+		it.ptr->succ->pred = nullptr;
+		it.ptr->succ = nullptr;
+		it.ptr->right->parent = nullptr;
+		it.ptr->right = nullptr;
+	
+		splay ( _begin );
+
+	} else {
+
+		std :: shared_ptr < node > left ( it.ptr->pred );
+		std :: shared_ptr < node > right ( it.ptr->succ );
+
+		it.ptr->pred->succ = it.ptr->succ;
+		it.ptr->succ->pred = it.ptr->pred;
+
+		it.ptr->pred = it.ptr->succ = nullptr;
+		it.ptr->left->parent = it.ptr->right->parent = nullptr;
+		it.ptr->left = it.ptr->right = nullptr;
+
+		splay ( left );
+
+		left->right = right;
+		right->parent = left;
+
+		splay ( right );
+	}
+
+}
+
+// erase every candidate with the same key
+template < class DataType > 
+size_t SplayTree < DataType > :: erase ( DataType key ) {
+
+	if ( _type == __SPLAY_TREE_BST__ or _type == __SPLAY_TREE_BST_LAZY_PROPAGATION__ ) {
+
+		iterator it = find ( key );
+
+		if ( it == end() ) {
+			return;
+		}
+
+		while ( it != begin() and ( not comparator ( *prev ( it ) , key ) ) and ( not comparator ( key , *prev ( it ) ) ) ) {
+			erase ( prev ( it ) );
+		}
+
+		while ( it != end() and ( not comparator ( *next ( it ) , key ) ) and ( not comparator ( key , *next ( it ) ) ) ) {
+			erase ( next ( it ) );
+		}
+
+	} else {
+
+		for ( iterator it = begin() + 1u ; it != end() ; it++ ) {
+			if ( ( not comparator ( *prev( it ) , key ) ) and ( not comparator ( key , *prev( it ) ) ) ) {
+				erase ( prev ( it ) );
+			}
+		}
+
+	}
+}
+
+template < class DataType > 
+void SplayTree < DataType > :: erase ( size_t index ) {
+	erase ( nth ( index ) );
+}
+
+// -- end erase function 
 
 // return number of nodes in tree
 template < class DataType > 
@@ -613,34 +759,63 @@ typename SplayTree < DataType > :: iterator SplayTree < DataType > :: begin ( vo
 	return iterator( _begin	);
 }
 
+// ## functions with namespace std
+
+// get next iterator
+template < class DataType > 
+typename SplayTree < DataType > :: iterator std::next ( typename SplayTree < DataType > :: iterator it ) {
+	it++;
+	return it;
+}
+
+// get prev iterator
+template < class DataType >
+typename SplayTree < DataType > :: iterator std::prev ( typename SplayTree < DataType > :: iterator it ) {
+	it--;
+	return it;
+}
+
 // distance function
 template < class DataType >
 size_t std :: distance ( typename SplayTree < DataType > :: iterator it1 , typename SplayTree < DataType > :: iterator it2 ) {
 	return abs ( SplayTree < DataType > :: position ( it2 ) - SplayTree < DataType > :: position ( it1 ) );
 }
 
+// shift functions
+template < class DataType >
+typename SplayTree < DataType > :: iterator operator + ( typename SplayTree < DataType > :: iterator it , int shift) {
+	return nth ( position ( it ) + shift );
+}
+template < class DataType >
+typename SplayTree < DataType > :: iterator operator - ( typename SplayTree < DataType > :: iterator it , int shift ) {
+	return nth ( position ( it ) - shift );
+}
+
 // -- end helper functions of splay tree
 
 #endif
 
-// testing functions
+// ## testing part
 
 #include <iostream>
 
 int main () {
 
-	// SplayTree < int > tree ( std :: greater<int> );
+	SplayTree<int> tree = SplayTree<int>( std :: greater<int>() );
 
-	SplayTree < int > tree = SplayTree < int > ( std :: greater < int >() );
-
-	for(int i = 0;i < 10;i++) {
-		tree.insert( rand() );
+	const int N = 10;
+	for(int i = 0;i < N;i++) {
+		int val = rand();
+		std :: cout << tree.size() << " " << val << std :: endl;
+		tree.insert( val );
 	}
 
-	for(int i = 1;i <= 10;i++) {
-		std::cout << *tree[i] << "\n";
-		// tree.remove(tree[1]);
+	for(int i = 0;i < N;i++) {
+		std::cout << *tree[0] << "\n";
+		tree.erase ( tree[0] );
 	}
+
+	std :: cout << "end " << std :: endl;
 
 	return 0;
 }
